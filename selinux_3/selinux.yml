@@ -1,0 +1,45 @@
+---
+- name: SELinux configuration
+  hosts: all
+  become: true
+  tasks:
+  - name: Update and install package
+    ansible.builtin.yum:
+      update_cache: true
+      name:
+        - nginx
+        - setroubleshoot-server 
+        - selinux-policy-mls 
+        - setools-console 
+        - policycoreutils-python-utils 
+        - policycoreutils-newrole
+
+  - name: Copy nginx configuration
+    ansible.builtin.copy:
+      src: ~/SELinux/selinux_2/nginx.conf
+      dest: /etc/nginx
+      mode: 0644
+      owner: root
+      group: root
+      remote_src: no
+  
+  - name: Restart nginx
+    ansible.builtin.systemd:
+      name: nginx
+      enabled: true
+      state: restarted
+    ignore_errors: true
+
+  - name: Configuration SELinux
+    ansible.builtin.shell:
+      cmd: | 
+        grep nginx /var/log/audit/audit.log | audit2allow -M nginx && \
+        semodule -i nginx.pp  
+    notify: Restart nginx
+
+  handlers:
+  - name: Restart nginx
+    ansible.builtin.systemd:
+      name: nginx
+      enabled: true
+      state: restarted

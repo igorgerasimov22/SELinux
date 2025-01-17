@@ -1,0 +1,44 @@
+---
+- name: SELinux configuration
+  hosts: all
+  become: true
+  tasks:
+  - name: Update and install package
+    ansible.builtin.yum:
+      update_cache: true
+      name:
+        - nginx
+        - setroubleshoot-server 
+        - selinux-policy-mls 
+        - setools-console 
+        - policycoreutils-python-utils 
+        - policycoreutils-newrole
+
+  - name: Copy nginx configuration
+    ansible.builtin.copy:
+      src: ~/SELinux/selinux_2/nginx.conf
+      dest: /etc/nginx
+      mode: 0644
+      owner: root
+      group: root
+      remote_src: no
+    notify: Restart nginx
+
+  - name: Check SELinux port configuration
+    ansible.builtin.shell:
+      cmd: "semanage port -l | grep -w 4881"
+    register: selinux_check_port
+    failed_when: selinux_check_port.rc not in [0,1]
+
+  - name: Configuration SELinux
+    ansible.builtin.command:
+      cmd: "semanage port -a -t http_port_t -p tcp 4881"
+    when: selinux_check_port.rc == 1
+    notify: Restart nginx
+
+  handlers:
+  - name: Restart nginx
+    ansible.builtin.systemd:
+      name: nginx
+      enabled: true
+      state: restarted

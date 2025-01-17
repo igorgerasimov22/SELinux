@@ -1,0 +1,36 @@
+---
+- name: SELinux configuration
+  hosts: all
+  become: true
+  tasks:
+  - name: Update and install package
+    ansible.builtin.yum:
+      update_cache: true
+      name:
+        - nginx
+        - setroubleshoot-server 
+        - selinux-policy-mls 
+        - setools-console 
+        - policycoreutils-python-utils 
+        - policycoreutils-newrole
+
+  - name: Copy nginx configuration
+    ansible.builtin.copy:
+      src: ~/SELinux/selinux_1/nginx.conf
+      dest: /etc/nginx
+      mode: 0644
+      owner: root
+      group: root
+      remote_src: no
+    notify: Restart nginx
+
+  - name: Enable NIS on SELinux
+    ansible.builtin.command:
+      cmd: "setsebool -P nis_enabled 1"
+
+  handlers:
+  - name: Restart nginx
+    ansible.builtin.systemd:
+      name: nginx
+      enabled: true
+      state: restarted
